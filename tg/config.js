@@ -2,8 +2,10 @@
 // токен бота хранится только в свойствах Google Apps Script (см. telegram-bot/README.md).
 export const TG_CONFIG = {
   botUsername: 'TriumphMoto_bot',
-  // Короткое имя мини-приложения из @BotFather (/newapp). Прямая ссылка: t.me/<бот>/<имя>?startapp=TR-011
-  appShortName: 'catalog',
+  // Короткое имя мини-приложения из @BotFather (/newapp). Пока null: /newapp делается только в BotFather на телефоне
+  // владельца бота. Тогда ссылки «Поделиться» и в заявке ведут на публичный адрес каталога с ?model=TR-xxx.
+  appShortName: null,
+  publicUrl: 'https://ivanbelkov1984.github.io/triumf-miniapp/tg/index.html',
   channelUrl: 'https://t.me/triumphmotosalon',
   // Если у Вадима появится имя пользователя в Telegram (t.me/имя), укажите его здесь без @:
   // тогда заявка откроется у него в чате уже набранной. Пока null — текст копируется, чат открывается по номеру.

@@ -68,7 +68,9 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
   try { const a = document.createElement('textarea'); a.value = text; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.append(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch { return false; }
 }
-const appLink = id => `https://t.me/${C.botUsername}/${C.appShortName}${id ? '?startapp=' + encodeURIComponent(id) : ''}`;
+const appLink = id => C.appShortName
+  ? `https://t.me/${C.botUsername}/${C.appShortName}${id ? '?startapp=' + encodeURIComponent(id) : ''}`
+  : `${C.publicUrl}${id ? '?model=' + encodeURIComponent(id) : ''}`;
 const who = () => { const u = tg?.initDataUnsafe?.user; return u ? [u.first_name, u.last_name].filter(Boolean).join(' ') + (u.username ? ` (@${u.username})` : '') : ''; };
 
 /** Заявка Вадиму. Без сервера: готовый текст в чат с Вадимом. Со слоем 2: ещё и мгновенное уведомление ботом. */
