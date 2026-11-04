@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "salonName": "ТРИУМФ",
+  "ownerName": "Вадим Попов",
+  "ownerPhoto": "assets/media/vadim-portrait-800.webp",
+  "ownerPhotoLarge": "assets/media/vadim-portrait-1200.webp",
+  "ownerAvatar": "assets/media/vadim-avatar-192.webp",
+  "ownerPhotoNote": "Фото и права на публикацию подтверждены владельцем 01.11.2026 (исходники 01_Пятигорск IMG_5647, 5648, 5655, 5660).",
+  "phone": {
+    "display": "+7 (989) 228-88-51",
+    "normalized": "+79892288851",
+    "tel": "tel:+79892288851"
+  },
+  "whatsapp": "https://wa.me/79892288851",
+  "telegram": "https://t.me/+79892288851",
+  "telegramVerified": false,
+  "maxProfileUrl": null,
+  "maxFallbackUrl": "https://max.ru/",
+  "hours": "09:00–19:00",
+  "responseText": "Вадим свяжется с вами в рабочее время с 09:00 до 19:00",
+  "visitText": "Посещение салона — по предварительной договорённости. Точную геолокацию отправим после согласования визита.",
+  "visitShort": "Визит по договорённости",
+  "delivery": {
+    "freeRadiusKm": 150,
+    "freeFromPrice": 100000,
+    "pricePerKm": 40,
+    "depositRub": 10000
+  }
+}
