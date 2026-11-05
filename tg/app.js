@@ -68,13 +68,26 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
   try { const a = document.createElement('textarea'); a.value = text; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.append(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch { return false; }
 }
-const appLink = id => C.appShortName
-  ? `https://t.me/${C.botUsername}/${C.appShortName}${id ? '?startapp=' + encodeURIComponent(id) : ''}`
-  : `${C.publicUrl}${id ? '?model=' + encodeURIComponent(id) : ''}`;
+/** Источник перехода: ?src=channel, ?startapp=TR-011__ad_name или start_param=src_channel. Только a-z, 0-9, _ и -, до 32 знаков. */
+const cleanSrc = v => String(v || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+let leadSrc = '';
+function parseStart(raw) {
+  const [first = '', ...rest] = String(raw || '').split('__');
+  const isSrcOnly = /^src_/i.test(first);
+  return { model: isSrcOnly ? '' : first, src: cleanSrc(isSrcOnly ? first.slice(4) : rest.join('_')) };
+}
+const appLink = (id, src) => {
+  const s = cleanSrc(src);
+  if (C.appShortName) { const p = id ? (s ? `${id}__${s}` : id) : (s ? `src_${s}` : ''); return `https://t.me/${C.botUsername}/${C.appShortName}${p ? '?startapp=' + encodeURIComponent(p) : ''}`; }
+  const q = [id && 'model=' + encodeURIComponent(id), s && 'src=' + s].filter(Boolean).join('&');
+  return `${C.publicUrl}${q ? '?' + q : ''}`;
+};
 const who = () => { const u = tg?.initDataUnsafe?.user; return u ? [u.first_name, u.last_name].filter(Boolean).join(' ') + (u.username ? ` (@${u.username})` : '') : ''; };
 
 /** Заявка Вадиму. Без сервера: готовый текст в чат с Вадимом. Со слоем 2: ещё и мгновенное уведомление ботом. */
 async function sendToVadim(text, meta = {}) {
+  if (leadSrc) { text += `
+Источник: ${leadSrc}`; meta = { ...meta, src: leadSrc }; }
   if (C.leadEndpoint) {
     try {
       const r = await fetch(C.leadEndpoint, { method: 'POST', body: JSON.stringify({ type: 'lead', text, meta, initData: tg?.initData || '' }) });
@@ -177,7 +190,7 @@ function lead(m) {
   sendToVadim(text, { kind: 'model', id: m.id, name: m.name, price: m.price });
 }
 function share(m) {
-  const url = appLink(m.id), text = `${m.name} — ${formatPrice(m.price)} в каталоге мотосалона ТРИУМФ`;
+  const url = appLink(m.id, 'share'), text = `${m.name} — ${formatPrice(m.price)} в каталоге мотосалона ТРИУМФ`;
   openLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
 }
 
@@ -351,10 +364,13 @@ addEventListener('hashchange', route);
     const dark = tg.colorScheme === 'dark';
     $('[data-logo]').src = `../assets/brand/triumf-lockup-${dark ? 'dark' : 'light'}.svg`;
     tg.onEvent('themeChanged', () => { $('[data-logo]').src = `../assets/brand/triumf-lockup-${tg.colorScheme === 'dark' ? 'dark' : 'light'}.svg`; });
-    const sp = tg.initDataUnsafe?.start_param;
-    if (sp && byId.has(sp) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${sp}`;
+    const sp = parseStart(tg.initDataUnsafe?.start_param);
+    if (sp.src) leadSrc = sp.src;
+    if (sp.model && byId.has(sp.model) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${sp.model}`;
   } else if (matchMedia('(prefers-color-scheme: dark)').matches) $('[data-logo]').src = '../assets/brand/triumf-lockup-dark.svg';
-  const q = new URLSearchParams(location.search).get('model');
+  const qs = new URLSearchParams(location.search);
+  if (!leadSrc && qs.get('src')) leadSrc = cleanSrc(qs.get('src'));
+  const q = qs.get('model');
   if (q && byId.has(q) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${q}`;
   favs = await loadFavs(); saveFavs();
   route();
