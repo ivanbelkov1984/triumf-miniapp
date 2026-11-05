@@ -7,6 +7,8 @@ export const TG_CONFIG = {
   appShortName: null,
   publicUrl: 'https://ivanbelkov1984.github.io/triumf-miniapp/tg/index.html',
   channelUrl: 'https://t.me/triumphmotosalon',
+  // Приглашение в чат «ТРИУМФ Сервис — ремонт и обслуживание» (приватная группа). null — кнопка скрыта.
+  serviceChatUrl: 'https://t.me/+MBQoxO0xOglmYTI6',
   // Если у Вадима появится имя пользователя в Telegram (t.me/имя), укажите его здесь без @:
   // тогда заявка откроется у него в чате уже набранной. Пока null — текст копируется, чат открывается по номеру.
   vadimUsername: null,

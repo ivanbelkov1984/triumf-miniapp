@@ -301,10 +301,53 @@ function renderContact() {
   setMainButton(null);
 }
 
+/* ---------- Сервис ---------- */
+const svc = { model: '', run: '', issue: '', when: '' };
+const WHEN = ['Как можно скорее', 'На этой неделе', 'На следующей неделе', 'Договоримся в переписке'];
+function renderService() {
+  const names = [...byId.values()].map(m => m.name);
+  view.innerHTML = `<h2 class="sec">Сервис и ремонт</h2>
+    <p class="lead-text">Опишите технику и неисправность — заявка уйдёт Вадиму готовым текстом. Цену и срок Вадим назовёт после осмотра.</p>
+    <form class="form" data-svc-form novalidate>
+      <div class="field"><label for="svc-model">Модель</label>
+        <input id="svc-model" name="model" list="svc-models" autocomplete="off" placeholder="Например, JHLofr LX MT300" value="${esc(svc.model)}">
+        <datalist id="svc-models">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+      <div class="field"><label for="svc-run">Пробег или моточасы</label>
+        <input id="svc-run" name="run" inputmode="text" placeholder="Например, 40 моточасов" value="${esc(svc.run)}"></div>
+      <div class="field"><label for="svc-issue">Что случилось <span aria-hidden="true">*</span></label>
+        <textarea id="svc-issue" name="issue" required aria-describedby="svc-issue-hint svc-issue-err" placeholder="Например, не заводится после зимы, течёт масло, нужно ТО">${esc(svc.issue)}</textarea>
+        <span class="hint" id="svc-issue-hint">Фото и видео можно отправить Вадиму в чате после заявки.</span>
+        <span class="err" id="svc-issue-err" role="alert" hidden>Опишите, что случилось, — хотя бы пару слов.</span></div>
+      <div class="field"><label for="svc-when">Когда удобно привезти</label>
+        <select id="svc-when" name="when">${WHEN.map(w => `<option${w === svc.when ? ' selected' : ''}>${esc(w)}</option>`).join('')}</select></div>
+      <div class="actions">
+        <button class="btn btn-accent btn-wide" type="submit">Отправить заявку Вадиму</button>
+        ${C.serviceChatUrl ? '<button class="btn btn-wide" type="button" data-link="' + esc(C.serviceChatUrl) + '">Сервисный чат</button>' : ''}
+      </div>
+    </form>
+    <p class="note">Данные никуда не сохраняются: заявку вы отправляете Вадиму сами.</p>`;
+  setMainButton(null);
+}
+function sendService(form) {
+  const f = Object.fromEntries(new FormData(form));
+  Object.assign(svc, f);
+  const issue = form.querySelector('#svc-issue'), err = form.querySelector('#svc-issue-err');
+  if (!String(f.issue || '').trim()) { issue.setAttribute('aria-invalid', 'true'); err.hidden = false; issue.focus(); haptic('heavy'); return; }
+  issue.removeAttribute('aria-invalid'); err.hidden = true;
+  const lines = ['Здравствуйте, Вадим! Заявка на сервис.'];
+  if (f.model.trim()) lines.push(`Модель: ${f.model.trim()}`);
+  if (f.run.trim()) lines.push(`Пробег / моточасы: ${f.run.trim()}`);
+  lines.push(`Что случилось: ${f.issue.trim()}`, `Когда удобно привезти: ${f.when}`);
+  if (who()) lines.push(`Пишу из Telegram: ${who()}.`);
+  sendToVadim(lines.join('\n'), { kind: 'service', model: f.model.trim() });
+}
+document.addEventListener('submit', e => { if (e.target.matches('[data-svc-form]')) { e.preventDefault(); sendService(e.target); } });
+document.addEventListener('input', e => { const f = e.target.closest('[data-svc-form]'); if (f && e.target.name in svc) svc[e.target.name] = e.target.value; });
+
 /* ---------- Навигация ---------- */
 function route() {
   const h = location.hash || '#/';
-  const tab = h.startsWith('#/pick') ? 'pick' : h.startsWith('#/fav') ? 'fav' : h.startsWith('#/contact') ? 'contact' : 'catalog';
+  const tab = h.startsWith('#/pick') ? 'pick' : h.startsWith('#/fav') ? 'fav' : h.startsWith('#/service') ? 'service' : h.startsWith('#/contact') ? 'contact' : 'catalog';
   document.querySelectorAll('.tabs a').forEach(a => a.dataset.tab === tab ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   const m = h.match(/^#\/m\/(TR-\d+)/);
   const deep = !!m || (tab === 'pick' && pick.step > 0);
@@ -313,6 +356,7 @@ function route() {
   setMainButton(null);
   if (tab === 'pick') return renderPick();
   if (tab === 'fav') return renderFav();
+  if (tab === 'service') return renderService();
   if (tab === 'contact') return renderContact();
   return renderCatalog();
 }
