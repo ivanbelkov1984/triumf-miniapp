@@ -4,7 +4,7 @@ export const TG_CONFIG = {
   botUsername: 'TriumphMoto_bot',
   // Короткое имя мини-приложения из @BotFather (/newapp). Пока null: /newapp делается только в BotFather на телефоне
   // владельца бота. Тогда ссылки «Поделиться» и в заявке ведут на публичный адрес каталога с ?model=TR-xxx.
-  appShortName: null,
+  appShortName: 'catalog',
   publicUrl: 'https://ivanbelkov1984.github.io/triumf-miniapp/tg/index.html',
   channelUrl: 'https://t.me/triumphmotosalon',
   // Приглашение в чат «ТРИУМФ Сервис — ремонт и обслуживание» (приватная группа). null — кнопка скрыта.
