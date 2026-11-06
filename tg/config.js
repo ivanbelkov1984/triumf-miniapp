@@ -1,5 +1,5 @@
 // Настройки мини-приложения ТРИУМФ для Telegram. Секретов здесь нет и быть не должно:
-// токен бота хранится только в свойствах Google Apps Script (см. telegram-bot/README.md).
+// токен бота хранится только в переменных сервиса на Railway (см. telegram-bot/README.md).
 export const TG_CONFIG = {
   botUsername: 'TriumphMoto_bot',
   // Короткое имя мини-приложения из @BotFather (/newapp). Пока null: /newapp делается только в BotFather на телефоне
@@ -16,5 +16,7 @@ export const TG_CONFIG = {
   // Пока null — заявка уходит через чат клиента с Вадимом, сервер не нужен.
   leadEndpoint: null,
   // Адрес сайта. null — сайт не опубликован: кнопка «Открыть сайт» и ссылки на его страницы скрыты.
-  siteUrl: null,
+  siteUrl: '../index.html',
+  // Адрес сервиса админки (Railway, Европа). Здесь только публичный адрес; токен бота хранится в переменных Railway.
+  apiBase: 'https://admin-api-production-b09f.up.railway.app',
 };

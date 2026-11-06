@@ -4,11 +4,15 @@
 import { STATUS, KIND, CATEGORY, SORTS, applyAvailability, queryMatches, sortModels, formatPrice, formatDate,
   buildMessage, plural } from '../assets/js/core.js';
 import { TG_CONFIG as C } from './config.js';
+import { createApi, applyOverrides, renderAdmin, renderId, okPath } from './admin.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const view = $('#view');
-const asset = p => p ? '../' + p : '';
+/** Картинки каталога лежат рядом с приложением, загруженные админом — на сервере (media/…). */
+let api = null;
+const asset = p => !p ? '' : /^media\//.test(p) ? (api ? api.mediaUrl(p) : '') : '../' + p;
+let base = null, overrides = null, meState; // base — исходный каталог; overrides — правки с сервера; meState: undefined = проверяется, null = не админ/нет связи
 const modelsWord = n => plural(n, ['модель', 'модели', 'моделей']);
 
 let models = [], byId = new Map(), site = {}, catalogDate = '';
@@ -282,7 +286,7 @@ function sendFavs() {
 }
 function renderContact() {
   const d = site.delivery || {};
-  view.innerHTML = `<div class="vadim"><img src="${esc(asset(site.ownerAvatar))}" alt="Вадим" width="72" height="72"><div><b>Вадим</b><span>Мотосалон ТРИУМФ · ${esc(site.hours)}</span></div></div>
+  view.innerHTML = `<div class="vadim"><img src="${esc(asset(site.ownerAvatar))}" alt="${esc(site.ownerDisplay)}" width="72" height="72"><div><b>${esc(site.ownerDisplay)}</b><span>Мотосалон ${esc(site.salonName)} · ${esc(site.hours)}</span></div></div>
     <div class="actions">
       <button class="btn btn-accent btn-wide" type="button" data-write>Написать Вадиму в Telegram</button>
       <a class="btn" href="${esc(site.phone?.tel)}" data-call>Позвонить</a>
@@ -345,15 +349,39 @@ document.addEventListener('submit', e => { if (e.target.matches('[data-svc-form]
 document.addEventListener('input', e => { const f = e.target.closest('[data-svc-form]'); if (f && e.target.name in svc) svc[e.target.name] = e.target.value; });
 
 /* ---------- Навигация ---------- */
+/** Всё, что нужно админке от приложения. */
+const adminCtx = {
+  get view() { return view; }, get api() { return api; }, STATUS, asset, formatPrice, toast, haptic, setMainButton,
+  getModels: () => models, getById: () => byId, getOverrides: () => overrides, getSite: () => site,
+  me: () => meState, userId: () => tg?.initDataUnsafe?.user?.id ?? null,
+  confirm: msg => new Promise(res => (inTelegram() && tg.showConfirm ? tg.showConfirm(msg, ok => res(!!ok)) : res(window.confirm(msg)))),
+  fail(e) { haptic('error'); toast(e?.message || 'Не получилось. Попробуйте ещё раз.', 7000); },
+  reload,
+};
+async function reload() {
+  const ov = await api.publicData(8000);
+  overrides = ov;
+  build();
+  paintBrand();
+  route();
+}
+
 function route() {
   const h = location.hash || '#/';
-  const tab = h.startsWith('#/pick') ? 'pick' : h.startsWith('#/fav') ? 'fav' : h.startsWith('#/service') ? 'service' : h.startsWith('#/contact') ? 'contact' : 'catalog';
+  view.onclick = view.onsubmit = view.oninput = view.onchange = null; // обработчики админки не должны жить на других экранах
+  const isAdmin = h.startsWith('#/admin');
+  const tab = isAdmin ? 'admin' : h.startsWith('#/pick') ? 'pick' : h.startsWith('#/fav') ? 'fav' : h.startsWith('#/service') ? 'service' : h.startsWith('#/contact') ? 'contact' : h.startsWith('#/id') ? '' : 'catalog';
   document.querySelectorAll('.tabs a').forEach(a => a.dataset.tab === tab ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
   const m = h.match(/^#\/m\/(TR-\d+)/);
-  const deep = !!m || (tab === 'pick' && pick.step > 0);
+  const deep = !!m || (tab === 'pick' && pick.step > 0) || /^#\/admin\/./.test(h);
   if (inTelegram()) { deep ? tg.BackButton.show() : tg.BackButton.hide(); }
   if (m) return renderModel(m[1]);
   setMainButton(null);
+  if (isAdmin) {
+    if (meState === undefined) { view.innerHTML = '<p class="empty">Проверяю доступ…</p>'; return; }
+    return renderAdmin(adminCtx, h);
+  }
+  if (h.startsWith('#/id')) return renderId(adminCtx);
   if (tab === 'pick') return renderPick();
   if (tab === 'fav') return renderFav();
   if (tab === 'service') return renderService();
@@ -391,31 +419,64 @@ addEventListener('hashchange', route);
 
 /* ---------- Старт ---------- */
 (async function start() {
-  const [cat, av, cfg] = await Promise.all([
+  api = C.apiBase ? createApi(C.apiBase, () => tg?.initData || '') : null;
+  const [cat, av, cfg, ov] = await Promise.all([
     fetch('../data/catalog.json').then(r => r.json()),
     fetch('../data/availability.json').then(r => r.json()).catch(() => ({})),
     fetch('../data/site-config.json').then(r => r.json()),
+    api ? api.publicData(2500).catch(() => null) : null, // сервер недоступен — показываем каталог без правок
   ]);
-  models = applyAvailability(cat.models, av.statuses || {});
-  byId = new Map(models.map(m => [m.id, m]));
-  site = cfg; catalogDate = formatDate(cat.catalogCheckedAt) || '';
+  base = { models: cat.models, statuses: av.statuses || {} };
+  overrides = ov;
+  site = cfg; site.ownerAvatarBase = cfg.ownerAvatar; site.ownerDisplay = 'Вадим'; site.salonName = 'ТРИУМФ';
+  baseSite = { ownerAvatar: cfg.ownerAvatar };
+  catalogDate = formatDate(cat.catalogCheckedAt) || '';
+  build();
   tg = await waitTelegram();
   if (tg) {
     tg.ready(); tg.expand();
     try { if (can('7.7')) tg.disableVerticalSwipes(); } catch {}
     try { tg.setHeaderColor('bg_color'); tg.setBackgroundColor('bg_color'); } catch {}
     tg.BackButton.onClick(back);
-    const dark = tg.colorScheme === 'dark';
-    $('[data-logo]').src = `../assets/brand/triumf-lockup-${dark ? 'dark' : 'light'}.svg`;
-    tg.onEvent('themeChanged', () => { $('[data-logo]').src = `../assets/brand/triumf-lockup-${tg.colorScheme === 'dark' ? 'dark' : 'light'}.svg`; });
+    tg.onEvent('themeChanged', paintBrand);
     const sp = parseStart(tg.initDataUnsafe?.start_param);
     if (sp.src) leadSrc = sp.src;
-    if (sp.model && byId.has(sp.model) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${sp.model}`;
-  } else if (matchMedia('(prefers-color-scheme: dark)').matches) $('[data-logo]').src = '../assets/brand/triumf-lockup-dark.svg';
+    if (sp.model === 'id') location.hash = '#/id';
+    else if (sp.model && byId.has(sp.model) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${sp.model}`;
+  }
+  paintBrand();
   const qs = new URLSearchParams(location.search);
   if (!leadSrc && qs.get('src')) leadSrc = cleanSrc(qs.get('src'));
   const q = qs.get('model');
-  if (q && byId.has(q) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${q}`;
+  if (q === 'id') location.hash = '#/id';
+  else if (q && byId.has(q) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${q}`;
   favs = await loadFavs(); saveFavs();
+  // Проверка админа: сервер сверяет подпись Telegram и ID. Вкладка «Админ» нужна только как удобство.
+  if (api && inTelegram()) {
+    api.call('/api/me', {}, 6000).then(r => { meState = r; }).catch(() => { meState = null; }).then(() => {
+      document.querySelector('.tabs').classList.toggle('six', !!meState?.admin);
+      document.querySelector('[data-tab="admin"]').hidden = !meState?.admin;
+      route();
+    });
+  } else meState = null;
   route();
 })();
+
+/** Собрать каталог из исходных данных и правок Вадима. */
+let baseSite = {};
+function build() {
+  models = applyOverrides(applyAvailability(structuredClone(base.models), base.statuses), overrides);
+  byId = new Map(models.map(m => [m.id, m]));
+}
+/** Имя, фото и логотип из профиля (если Вадим их менял) и тема. */
+function paintBrand() {
+  const p = overrides?.profile || {};
+  site.ownerDisplay = p.ownerName || 'Вадим';
+  site.salonName = p.salonName || 'ТРИУМФ';
+  site.ownerAvatar = okPath(p.ownerAvatar) ? p.ownerAvatar : baseSite.ownerAvatar;
+  const dark = tg ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const custom = dark ? (p.logoDark || p.logoLight) : (p.logoLight || p.logoDark);
+  const logo = $('[data-logo]');
+  logo.src = okPath(custom) ? asset(custom) : `../assets/brand/triumf-lockup-${dark ? 'dark' : 'light'}.svg`;
+  logo.alt = `${site.salonName} — мотосалон`;
+}

@@ -151,3 +151,35 @@ h2.sec { font-family: var(--display); font-weight: 600; font-size: 22px; text-tr
 .field .err { font-size: 13px; color: #d93a2b; font-weight: 600; }
 .field [aria-invalid="true"] { border-color: #d93a2b; }
 .lead-text { font-size: 15px; margin: 0 2px 4px; color: var(--muted); }
+
+/* Админка (видна только администратору) */
+.tabs.six { grid-template-columns: repeat(6, 1fr); }
+.tabs.six a { font-size: 11px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.field textarea { min-height: 96px; }
+.hint { font-size: 13px; color: var(--muted); margin: 4px 2px; }
+.adm-list { display: grid; gap: 8px; margin-top: 8px; }
+.adm-item { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; color: inherit; text-decoration: none; min-height: 64px; }
+.adm-item img { width: 64px; height: 48px; object-fit: contain; background: var(--plate); border-radius: 8px; }
+.adm-main { display: grid; gap: 2px; min-width: 0; }
+.adm-main b { font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
+.adm-main small { font-size: 12px; color: var(--muted); }
+.adm-price { font-family: var(--display); font-weight: 600; font-size: 16px; white-space: nowrap; }
+.adm-hist { grid-template-columns: 1fr auto; }
+.adm-cover { width: 100%; max-height: 260px; object-fit: contain; background: var(--plate); border-radius: 12px; margin-bottom: 8px; }
+.thumbs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.thumb { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.thumb img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: var(--plate); }
+.thumb figcaption { display: grid; grid-template-columns: repeat(4, 1fr); }
+.thumb button { min-height: 44px; border: 0; border-top: 1px solid var(--line); background: transparent; font-size: 18px; }
+.thumb button[aria-pressed="true"] { color: var(--orange); }
+.spec-row { display: grid; grid-template-columns: 1fr 1.4fr 44px; gap: 6px; margin-bottom: 6px; }
+.spec-row input { min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; font-size: 15px; min-width: 0; }
+.spec-row button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; }
+.pf-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+.pf-row b { grid-column: 1 / -1; font-size: 14px; }
+.pf-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
+.pf-logo { height: 44px; width: auto; max-width: 100%; padding: 6px; border-radius: 8px; }
+.pf-logo-l { background: #fff; }
+.pf-logo-d { background: #171B20; }
+.m-price#my-id { letter-spacing: .06em; }
