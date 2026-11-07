@@ -118,9 +118,8 @@ details.specs td:first-child { color: var(--muted); width: 42%; padding-right: 1
 .why span { font-size: 12px; background: color-mix(in srgb, var(--orange) 14%, transparent); color: var(--text); border-radius: 6px; padding: 2px 6px; }
 .answers { font-size: 14px; color: var(--muted); margin: 0 0 12px; }
 
-/* Вадим */
-.vadim { display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; margin: 6px 0 12px; }
-.vadim img { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
+/* Связаться */
+.vadim { display: block; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; margin: 6px 0 12px; }
 .vadim b { font-size: 18px; display: block; }
 .vadim span { font-size: 14px; color: var(--muted); }
 .info { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 14px; margin-top: 12px; }
@@ -178,7 +177,6 @@ h2.sec { font-family: var(--display); font-weight: 600; font-size: 22px; text-tr
 .spec-row button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; }
 .pf-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
 .pf-row b { grid-column: 1 / -1; font-size: 14px; }
-.pf-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
 .pf-logo { height: 44px; width: auto; max-width: 100%; padding: 6px; border-radius: 8px; }
 .pf-logo-l { background: #fff; }
 .pf-logo-d { background: #171B20; }

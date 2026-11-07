@@ -1,4 +1,4 @@
-// ТРИУМФ — админка мини-приложения: цены, фото, данные карточек, профиль Вадима, история с откатом.
+// ТРИУМФ — админка мини-приложения: цены, фото, данные карточек, профиль салона, история с откатом.
 // Показывается только админу: сервер проверяет подпись Telegram и ID (кнопки в интерфейсе — лишь удобство, не защита).
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const MEDIA_RE = /^media\/[a-f0-9]{16,64}\.webp$/;
@@ -222,20 +222,18 @@ function renderProfile(ctx) {
   const { view } = ctx;
   const p = ctx.getOverrides()?.profile || {};
   const site = ctx.getSite();
-  const ed = { ownerAvatar: p.ownerAvatar || '', logoLight: p.logoLight || '', logoDark: p.logoDark || '' };
+  const ed = { logoLight: p.logoLight || '', logoDark: p.logoDark || '' };
   const preview = (key, fallback, cls) => `<img class="${cls}" src="${esc(ed[key] ? ctx.asset(ed[key]) : ctx.asset(fallback))}" alt="">`;
   const paint = () => {
     $('#pf-imgs').innerHTML = `
-      <div class="pf-row"><b>Моё фото</b>${preview('ownerAvatar', site.ownerAvatarBase, 'pf-avatar')}
-        <label class="btn" for="pf-avatar">Загрузить</label><input id="pf-avatar" type="file" accept="image/jpeg,image/png,image/webp" hidden></div>
       <div class="pf-row"><b>Логотип для светлой темы</b>${preview('logoLight', 'assets/brand/triumf-lockup-light.svg', 'pf-logo pf-logo-l')}
         <label class="btn" for="pf-logo-l">Загрузить</label><input id="pf-logo-l" type="file" accept="image/png,image/webp,image/jpeg" hidden></div>
       <div class="pf-row"><b>Логотип для тёмной темы</b>${preview('logoDark', 'assets/brand/triumf-lockup-dark.svg', 'pf-logo pf-logo-d')}
         <label class="btn" for="pf-logo-d">Загрузить</label><input id="pf-logo-d" type="file" accept="image/png,image/webp,image/jpeg" hidden></div>`;
   };
   view.innerHTML = `<div class="step-head"><h1>Профиль</h1></div>
+    <p class="hint">Клиентам показывается только название салона и логотип — без личного имени и фото.</p>
     <form class="form" id="adm-form" novalidate>
-      ${field('pf-name', 'Ваше имя в приложении', p.ownerName ?? ctx.getSite().ownerDisplay ?? 'Вадим', 'maxlength="60"')}
       ${field('pf-salon', 'Название салона', p.salonName ?? site.salonName ?? 'ТРИУМФ', 'maxlength="60"')}
       <div id="pf-imgs"></div>
       <p class="hint">Логотип: PNG или WebP с прозрачным фоном, не меньше 800 px по ширине. Если не загружать, остаётся стандартный.</p>
@@ -249,11 +247,9 @@ function renderProfile(ctx) {
     if (busy) return; busy = true;
     try {
       const patch = {};
-      const name = $('#pf-name').value.trim(), salon = $('#pf-salon').value.trim();
-      if (name && name !== (p.ownerName ?? ctx.getSite().ownerDisplay ?? 'Вадим')) patch.ownerName = name;
+      const salon = $('#pf-salon').value.trim();
       if (salon && salon !== (p.salonName ?? site.salonName ?? 'ТРИУМФ')) patch.salonName = salon;
-      for (const k of ['ownerAvatar', 'logoLight', 'logoDark']) if (ed[k] && ed[k] !== p[k]) patch[k] = ed[k];
-      if (ed.ownerAvatar && ed.ownerAvatar !== p.ownerAvatar) patch.ownerPhoto = ed.ownerAvatar;
+      for (const k of ['logoLight', 'logoDark']) if (ed[k] && ed[k] !== p[k]) patch[k] = ed[k];
       if (!Object.keys(patch).length) { ctx.toast('Изменений нет.'); return; }
       await ctx.api.call('/api/admin/profile', { patch });
       ctx.haptic('ok'); await ctx.reload(); ctx.toast('Сохранено.'); location.hash = '#/admin';
@@ -262,14 +258,14 @@ function renderProfile(ctx) {
   view.onsubmit = e => { e.preventDefault(); save(); };
   ctx.setMainButton('Сохранить', save);
   view.onchange = async e => {
-    const map = { 'pf-avatar': ['ownerAvatar', 'avatar'], 'pf-logo-l': ['logoLight', 'logo'], 'pf-logo-d': ['logoDark', 'logo'] };
+    const map = { 'pf-logo-l': ['logoLight', 'logo'], 'pf-logo-d': ['logoDark', 'logo'] };
     const m = map[e.target.id]; const f = e.target.files?.[0]; if (!m || !f) return;
     try { ctx.toast('Загружаю…', 60000); const r = await ctx.api.upload(f, m[1]); ed[m[0]] = r.path; paint(); ctx.toast('Загружено. Нажмите «Сохранить».'); } catch (err) { ctx.fail(err); }
   };
   view.onclick = async e => {
     if (!e.target.closest('[data-adm="reset"]')) return;
-    if (!(await ctx.confirm('Вернуть имя, фото и логотип к стандартным?'))) return;
-    try { await ctx.api.call('/api/admin/profile', { reset: ['salonName', 'ownerName', 'ownerAvatar', 'ownerPhoto', 'logoLight', 'logoDark'] }); await ctx.reload(); ctx.toast('Возвращено.'); location.hash = '#/admin'; } catch (err) { ctx.fail(err); }
+    if (!(await ctx.confirm('Вернуть название и логотип к стандартным?'))) return;
+    try { await ctx.api.call('/api/admin/profile', { reset: ['salonName', 'logoLight', 'logoDark'] }); await ctx.reload(); ctx.toast('Возвращено.'); location.hash = '#/admin'; } catch (err) { ctx.fail(err); }
   };
   window.scrollTo(0, 0);
 }

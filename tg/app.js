@@ -1,6 +1,6 @@
-// ТРИУМФ — мини-приложение Telegram: каталог, подбор за 4 вопроса, избранное, заявка Вадиму.
+// ТРИУМФ — мини-приложение Telegram: каталог, подбор за 4 вопроса, избранное, заявка в мотосалон.
 // Данные — те же, что у сайта (../data). Сервер не нужен: заявку отправляет сам клиент из своего Telegram.
-// Слой 2 (по решению владельца): если задан TG_CONFIG.leadEndpoint, заявка дополнительно уходит Вадиму ботом.
+// Слой 2 (по решению владельца): если задан TG_CONFIG.leadEndpoint, заявка дополнительно уходит в мотосалон ботом.
 import { STATUS, KIND, CATEGORY, SORTS, applyAvailability, queryMatches, sortModels, formatPrice, formatDate,
   buildMessage, plural } from '../assets/js/core.js';
 import { TG_CONFIG as C } from './config.js';
@@ -88,7 +88,7 @@ const appLink = (id, src) => {
 };
 const who = () => { const u = tg?.initDataUnsafe?.user; return u ? [u.first_name, u.last_name].filter(Boolean).join(' ') + (u.username ? ` (@${u.username})` : '') : ''; };
 
-/** Заявка Вадиму. Без сервера: готовый текст в чат с Вадимом. Со слоем 2: ещё и мгновенное уведомление ботом. */
+/** Заявка в мотосалон. Без сервера: готовый текст в чат. Со слоем 2: ещё и мгновенное уведомление ботом. */
 async function sendToVadim(text, meta = {}) {
   if (leadSrc) { text += `
 Источник: ${leadSrc}`; meta = { ...meta, src: leadSrc }; }
@@ -96,13 +96,13 @@ async function sendToVadim(text, meta = {}) {
     try {
       const r = await fetch(C.leadEndpoint, { method: 'POST', body: JSON.stringify({ type: 'lead', text, meta, initData: tg?.initData || '' }) });
       const j = await r.json().catch(() => ({}));
-      if (r.ok && j.ok) { haptic('ok'); return notify(`Заявка отправлена Вадиму. Он ответит в рабочее время, ${site.hours || '09:00–19:00'}.`); }
+      if (r.ok && j.ok) { haptic('ok'); return notify(`Заявка отправлена. Вам ответят в рабочее время, ${site.hours || '09:00–19:00'}.`); }
     } catch {}
   }
   if (C.vadimUsername) return openLink(`https://t.me/${C.vadimUsername}?text=${encodeURIComponent(text)}`);
   const copied = await copyText(text);
-  const msg = copied ? 'Текст заявки скопирован. Откроется чат с Вадимом — вставьте текст и отправьте.' : 'Откроется чат с Вадимом. Напишите, какая модель интересует.';
-  if (inTelegram() && tg.showPopup) tg.showPopup({ title: 'Заявка Вадиму', message: msg, buttons: [{ id: 'go', type: 'default', text: 'Открыть чат' }, { type: 'cancel' }] }, id => { if (id === 'go') openLink(site.telegram); });
+  const msg = copied ? 'Текст заявки скопирован. Откроется чат — вставьте текст и отправьте.' : 'Откроется чат. Напишите, какая модель интересует.';
+  if (inTelegram() && tg.showPopup) tg.showPopup({ title: 'Заявка в мотосалон', message: msg, buttons: [{ id: 'go', type: 'default', text: 'Открыть чат' }, { type: 'cancel' }] }, id => { if (id === 'go') openLink(site.telegram); });
   else { toast(msg, 6000); openLink(site.telegram); }
 }
 function notify(text) { if (inTelegram() && tg.showAlert) tg.showAlert(text); else toast(text); }
@@ -143,9 +143,9 @@ function renderCatalog() {
     ${state.q || state.cat !== 'all' ? '' : `<button class="pick-cta" type="button" data-go="#/pick"><span><b>Подобрать за 4 вопроса</b><span>Рост, опыт, где ездить и бюджет — покажем подходящие модели</span></span><i aria-hidden="true">›</i></button>`}
     <div class="row"><p class="count" id="count">Найдено: ${list.length} ${modelsWord(list.length)}</p>
       <label class="sr-only" for="sort">Сортировка</label><select class="sort" id="sort">${Object.entries(SORTS).filter(([k]) => !/seat|weight/.test(k)).map(([k, v]) => `<option value="${k}" ${k === state.sort ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
-    ${list.length ? `<div class="grid" id="grid">${list.slice(0, state.shown).map(m => card(m)).join('')}</div>` : `<p class="empty">Ничего не нашлось. Измените запрос или спросите Вадима — он подберёт.</p>`}
+    ${list.length ? `<div class="grid" id="grid">${list.slice(0, state.shown).map(m => card(m)).join('')}</div>` : `<p class="empty">Ничего не нашлось. Измените запрос или напишите нам — подберём.</p>`}
     ${list.length > state.shown ? `<button class="more" type="button" data-more>Показать ещё ${Math.min(20, list.length - state.shown)}</button>` : ''}
-    <p class="note">Цены — по каталогу поставщика на ${esc(catalogDate)}. «Под заказ» — срок и цену поставки Вадим подтвердит при обращении. Информация не является публичной офертой.</p>`;
+    <p class="note">Цены — по каталогу поставщика на ${esc(catalogDate)}. «Под заказ» — срок и цену поставки подтвердят при обращении. Информация не является публичной офертой.</p>`;
   const q = $('#q');
   q.addEventListener('input', () => { state.q = q.value; state.shown = 20; const pos = q.selectionStart; renderCatalog(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); });
   $('#sort').addEventListener('change', e => { state.sort = e.target.value; renderCatalog(); });
@@ -176,17 +176,17 @@ function renderModel(id) {
     <p class="m-price">${esc(formatPrice(m.price))}<small>по каталогу поставщика на ${esc(formatDate(m.priceUpdatedAt) || catalogDate)}</small></p>
     <div class="facts">${factBoxes(m)}</div>
     <div class="actions">
-      ${inTelegram() ? '' : `<button class="btn btn-accent btn-wide" type="button" data-lead="${m.id}">Узнать наличие у Вадима</button>`}
+      ${inTelegram() ? '' : `<button class="btn btn-accent btn-wide" type="button" data-lead="${m.id}">Узнать наличие</button>`}
       <button class="btn" type="button" data-fav="${m.id}" aria-pressed="${favs.has(m.id)}">${favs.has(m.id) ? 'В избранном' : 'В избранное'}</button>
       <button class="btn" type="button" data-share="${m.id}">Поделиться</button>
       ${site.phone?.tel ? `<a class="btn btn-wide" href="${esc(site.phone.tel)}" data-call>Позвонить ${esc(site.phone.display)}</a>` : ''}
     </div>
     ${m.description ? `<p class="desc">${esc(m.description)}</p>` : ''}
     ${m.specs?.length ? `<details class="specs"><summary>Все характеристики (${m.specs.length})</summary><table>${m.specs.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table></details>` : ''}
-    <p class="note">Характеристики — по данным поставщика. Наличие, комплектацию и цену подтверждает Вадим. Не является публичной офертой.</p>`;
+    <p class="note">Характеристики — по данным поставщика. Наличие, комплектацию и цену подтверждают при обращении. Не является публичной офертой.</p>`;
   const gal = $('#gal');
   gal.addEventListener('scroll', () => { $('#gc').textContent = `${Math.round(gal.scrollLeft / gal.clientWidth) + 1} / ${pics.length}`; }, { passive: true });
-  setMainButton('Узнать наличие у Вадима', () => lead(m));
+  setMainButton('Узнать наличие', () => lead(m));
   window.scrollTo(0, 0);
 }
 function lead(m) {
@@ -209,7 +209,7 @@ const Q = [
   { key: 'budget', title: 'Бюджет?', opts: [
     ['150', 'До 150 000 ₽', ''], ['250', 'До 250 000 ₽', ''], ['400', 'До 400 000 ₽', ''], ['any', 'Не важно', 'Покажем лучшее под задачу']] },
   { key: 'pts', title: 'Нужен ПТС?', opts: [
-    ['yes', 'Да, буду ездить по дорогам', 'ПТС есть не у всех моделей — Вадим уточнит'], ['no', 'Нет, только бездорожье', 'Спортинвентарь без регистрации'], ['any', 'Пока не знаю', '']] },
+    ['yes', 'Да, буду ездить по дорогам', 'ПТС есть не у всех моделей — уточним при обращении'], ['no', 'Нет, только бездорожье', 'Спортинвентарь без регистрации'], ['any', 'Пока не знаю', '']] },
 ];
 const LABEL = Object.fromEntries(Q.flatMap(q => q.opts.map(([v, t]) => [`${q.key}:${v}`, t])));
 
@@ -254,15 +254,15 @@ function renderPick() {
   const summary = Q.map(q => LABEL[`${q.key}:${pick.answers[q.key]}`]).filter(Boolean).join(' · ');
   view.innerHTML = `<div class="step-head"><h1>Подходит вам</h1><span>${res.length} ${modelsWord(res.length)}</span></div>
     <p class="answers">${esc(summary)} · <a href="#/pick" data-restart>изменить</a></p>
-    ${res.length ? `<div class="grid">${res.map(r => card(r.m, r.why)).join('')}</div>` : `<p class="empty">Под такие условия в каталоге ничего нет. Отправьте подбор Вадиму — он предложит вариант под заказ.</p>`}
-    ${inTelegram() ? '' : `<div class="actions"><button class="btn btn-accent btn-wide" type="button" data-send-pick>Отправить подбор Вадиму</button></div>`}
-    <p class="note">Подбор — ориентир по данным поставщика: у части моделей не указаны ПТС, такт и размер. Окончательно модель подтвердит Вадим.</p>`;
-  setMainButton('Отправить подбор Вадиму', sendPick);
+    ${res.length ? `<div class="grid">${res.map(r => card(r.m, r.why)).join('')}</div>` : `<p class="empty">Под такие условия в каталоге ничего нет. Отправьте подбор — вам предложат вариант под заказ.</p>`}
+    ${inTelegram() ? '' : `<div class="actions"><button class="btn btn-accent btn-wide" type="button" data-send-pick>Отправить подбор</button></div>`}
+    <p class="note">Подбор — ориентир по данным поставщика: у части моделей не указаны ПТС, такт и размер. Окончательно модель подтвердят при обращении.</p>`;
+  setMainButton('Отправить подбор', sendPick);
   window.scrollTo(0, 0);
 }
 function sendPick() {
   const res = pickResults().slice(0, 3);
-  const lines = ['Здравствуйте, Вадим!', 'Подобрал технику в каталоге ТРИУМФ в Telegram:'];
+  const lines = ['Здравствуйте!', 'Подобрал технику в каталоге ТРИУМФ в Telegram:'];
   for (const q of Q) { const l = LABEL[`${q.key}:${pick.answers[q.key]}`]; if (l) lines.push(`— ${q.title} ${l}`); }
   if (res.length) { lines.push('Понравились:'); res.forEach(r => lines.push(`• ${r.m.name}, ${r.m.id} — ${formatPrice(r.m.price)}`)); }
   lines.push('Подскажите, что из этого есть и что посоветуете.');
@@ -270,38 +270,38 @@ function sendPick() {
   sendToVadim(lines.join('\n'), { kind: 'pick', answers: pick.answers, ids: res.map(r => r.m.id) });
 }
 
-/* ---------- Избранное и Вадим ---------- */
+/* ---------- Избранное и связь с мотосалоном ---------- */
 function renderFav() {
   const list = models.filter(m => favs.has(m.id));
   view.innerHTML = `<div class="step-head"><h1>Избранное</h1><span>${list.length} ${modelsWord(list.length)}</span></div>
     ${list.length ? `<div class="grid">${list.map(m => card(m)).join('')}</div>` : '<p class="empty">Нажмите ♡ на карточке, чтобы сохранить модель. Избранное хранится в вашем Telegram.</p>'}
-    ${list.length && !inTelegram() ? '<div class="actions"><button class="btn btn-accent btn-wide" type="button" data-send-favs>Спросить Вадима об избранном</button></div>' : ''}`;
-  setMainButton(list.length ? 'Спросить Вадима об избранном' : null, sendFavs);
+    ${list.length && !inTelegram() ? '<div class="actions"><button class="btn btn-accent btn-wide" type="button" data-send-favs>Спросить об избранном</button></div>' : ''}`;
+  setMainButton(list.length ? 'Спросить об избранном' : null, sendFavs);
 }
 function sendFavs() {
   const list = models.filter(m => favs.has(m.id));
-  const lines = ['Здравствуйте, Вадим!', 'Присмотрел в каталоге ТРИУМФ:', ...list.map(m => `• ${m.name}, ${m.id} — ${formatPrice(m.price)}`), 'Подскажите наличие и что лучше выбрать.'];
+  const lines = ['Здравствуйте!', 'Присмотрел в каталоге ТРИУМФ:', ...list.map(m => `• ${m.name}, ${m.id} — ${formatPrice(m.price)}`), 'Подскажите наличие и что лучше выбрать.'];
   if (who()) lines.push(`Пишу из Telegram: ${who()}.`);
   sendToVadim(lines.join('\n'), { kind: 'favs', ids: list.map(m => m.id) });
 }
 function renderContact() {
   const d = site.delivery || {};
-  view.innerHTML = `<div class="vadim"><img src="${esc(asset(site.ownerAvatar))}" alt="${esc(site.ownerDisplay)}" width="72" height="72"><div><b>${esc(site.ownerDisplay)}</b><span>Мотосалон ${esc(site.salonName)} · ${esc(site.hours)}</span></div></div>
+  view.innerHTML = `<div class="vadim"><div><b>${esc(site.salonName)}</b><span>Мотосалон · ${esc(site.hours)}</span></div></div>
     <div class="actions">
-      <button class="btn btn-accent btn-wide" type="button" data-write>Написать Вадиму в Telegram</button>
+      <button class="btn btn-accent btn-wide" type="button" data-write>Написать в Telegram</button>
       ${site.phone?.tel ? `<a class="btn" href="${esc(site.phone.tel)}" data-call>Позвонить</a>` : ''}
       <button class="btn" type="button" data-link="${esc(C.channelUrl)}">Канал салона</button>
       ${C.siteUrl ? '<button class="btn btn-wide" type="button" data-site>Открыть сайт</button>' : ''}
     </div>
     <h2 class="sec">Как купить</h2>
     <div class="info">
-      <p><b>Подбор.</b> Вадим поможет выбрать по росту, опыту и задачам — напишите или пройдите подбор.</p>
-      <p><b>Наличие и цена.</b> Цены — по каталогу поставщика. Модели «под заказ» Вадим привезёт, срок и итоговую цену подтвердит в переписке.</p>
+      <p><b>Подбор.</b> Поможем выбрать по росту, опыту и задачам — напишите или пройдите подбор.</p>
+      <p><b>Наличие и цена.</b> Цены — по каталогу поставщика. Модели «под заказ» привезём, срок и итоговую цену подтвердим в переписке.</p>
       <p><b>Подготовка.</b> Смазка, проверка и протяжка перед выдачей входят в стоимость.</p>
       <p><b>Доставка.</b> До ${d.freeRadiusKm || 150} км бесплатно при стоимости техники от ${new Intl.NumberFormat('ru-RU').format(d.freeFromPrice || 100000)} ₽, дальше — ${d.pricePerKm || 40} ₽/км.</p>
       <p><b>Визит.</b> ${esc(site.visitText || '')}</p>
     </div>
-    <p class="note">Мини-приложение не собирает персональные данные: избранное хранится в вашем Telegram, сообщения вы отправляете Вадиму сами.${C.siteUrl ? ' <a href="#" data-link-site="privacy.html">Конфиденциальность</a> · <a href="#" data-link-site="terms.html">Правовая информация</a>' : ' Информация не является публичной офертой.'}</p>`;
+    <p class="note">Мини-приложение не собирает персональные данные: избранное хранится в вашем Telegram, сообщения вы отправляете сами.${C.siteUrl ? ' <a href="#" data-link-site="privacy.html">Конфиденциальность</a> · <a href="#" data-link-site="terms.html">Правовая информация</a>' : ' Информация не является публичной офертой.'}</p>`;
   setMainButton(null);
 }
 
@@ -311,7 +311,7 @@ const WHEN = ['Как можно скорее', 'На этой неделе', '�
 function renderService() {
   const names = [...byId.values()].map(m => m.name);
   view.innerHTML = `<h2 class="sec">Сервис и ремонт</h2>
-    <p class="lead-text">Опишите технику и неисправность — заявка уйдёт Вадиму готовым текстом. Цену и срок Вадим назовёт после осмотра.</p>
+    <p class="lead-text">Опишите технику и неисправность — заявка уйдёт в мотосалон готовым текстом. Цену и срок назовут после осмотра.</p>
     <form class="form" data-svc-form novalidate>
       <div class="field"><label for="svc-model">Модель</label>
         <input id="svc-model" name="model" list="svc-models" autocomplete="off" placeholder="Например, JHLofr LX MT300" value="${esc(svc.model)}">
@@ -320,16 +320,16 @@ function renderService() {
         <input id="svc-run" name="run" inputmode="text" placeholder="Например, 40 моточасов" value="${esc(svc.run)}"></div>
       <div class="field"><label for="svc-issue">Что случилось <span aria-hidden="true">*</span></label>
         <textarea id="svc-issue" name="issue" required aria-describedby="svc-issue-hint svc-issue-err" placeholder="Например, не заводится после зимы, течёт масло, нужно ТО">${esc(svc.issue)}</textarea>
-        <span class="hint" id="svc-issue-hint">Фото и видео можно отправить Вадиму в чате после заявки.</span>
+        <span class="hint" id="svc-issue-hint">Фото и видео можно отправить в чате после заявки.</span>
         <span class="err" id="svc-issue-err" role="alert" hidden>Опишите, что случилось, — хотя бы пару слов.</span></div>
       <div class="field"><label for="svc-when">Когда удобно привезти</label>
         <select id="svc-when" name="when">${WHEN.map(w => `<option${w === svc.when ? ' selected' : ''}>${esc(w)}</option>`).join('')}</select></div>
       <div class="actions">
-        <button class="btn btn-accent btn-wide" type="submit">Отправить заявку Вадиму</button>
+        <button class="btn btn-accent btn-wide" type="submit">Отправить заявку</button>
         ${C.serviceChatUrl ? '<button class="btn btn-wide" type="button" data-link="' + esc(C.serviceChatUrl) + '">Сервисный чат</button>' : ''}
       </div>
     </form>
-    <p class="note">Данные никуда не сохраняются: заявку вы отправляете Вадиму сами.</p>`;
+    <p class="note">Данные никуда не сохраняются: заявку вы отправляете сами.</p>`;
   setMainButton(null);
 }
 function sendService(form) {
@@ -338,7 +338,7 @@ function sendService(form) {
   const issue = form.querySelector('#svc-issue'), err = form.querySelector('#svc-issue-err');
   if (!String(f.issue || '').trim()) { issue.setAttribute('aria-invalid', 'true'); err.hidden = false; issue.focus(); haptic('heavy'); return; }
   issue.removeAttribute('aria-invalid'); err.hidden = true;
-  const lines = ['Здравствуйте, Вадим! Заявка на сервис.'];
+  const lines = ['Здравствуйте! Заявка на сервис.'];
   if (f.model.trim()) lines.push(`Модель: ${f.model.trim()}`);
   if (f.run.trim()) lines.push(`Пробег / моточасы: ${f.run.trim()}`);
   lines.push(`Что случилось: ${f.issue.trim()}`, `Когда удобно привезти: ${f.when}`);
@@ -428,8 +428,7 @@ addEventListener('hashchange', route);
   ]);
   base = { models: cat.models, statuses: av.statuses || {} };
   overrides = ov;
-  site = cfg; site.ownerAvatarBase = cfg.ownerAvatar; site.ownerDisplay = 'Вадим'; site.salonName = 'ТРИУМФ';
-  baseSite = { ownerAvatar: cfg.ownerAvatar };
+  site = cfg; site.salonName = 'ТРИУМФ';
   catalogDate = formatDate(cat.catalogCheckedAt) || '';
   build();
   tg = await waitTelegram();
@@ -462,18 +461,15 @@ addEventListener('hashchange', route);
   route();
 })();
 
-/** Собрать каталог из исходных данных и правок Вадима. */
-let baseSite = {};
+/** Собрать каталог из исходных данных и правок. */
 function build() {
   models = applyOverrides(applyAvailability(structuredClone(base.models), base.statuses), overrides);
   byId = new Map(models.map(m => [m.id, m]));
 }
-/** Имя, фото и логотип из профиля (если Вадим их менял) и тема. */
+/** Название салона и логотип из профиля (если его меняли) и тема. */
 function paintBrand() {
   const p = overrides?.profile || {};
-  site.ownerDisplay = p.ownerName || 'Вадим';
   site.salonName = p.salonName || 'ТРИУМФ';
-  site.ownerAvatar = okPath(p.ownerAvatar) ? p.ownerAvatar : baseSite.ownerAvatar;
   const dark = tg ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   const custom = dark ? (p.logoDark || p.logoLight) : (p.logoLight || p.logoDark);
   const logo = $('[data-logo]');
