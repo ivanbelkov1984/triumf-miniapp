@@ -179,7 +179,7 @@ function renderModel(id) {
       ${inTelegram() ? '' : `<button class="btn btn-accent btn-wide" type="button" data-lead="${m.id}">Узнать наличие у Вадима</button>`}
       <button class="btn" type="button" data-fav="${m.id}" aria-pressed="${favs.has(m.id)}">${favs.has(m.id) ? 'В избранном' : 'В избранное'}</button>
       <button class="btn" type="button" data-share="${m.id}">Поделиться</button>
-      <a class="btn btn-wide" href="${esc(site.phone?.tel)}" data-call>Позвонить ${esc(site.phone?.display)}</a>
+      ${site.phone?.tel ? `<a class="btn btn-wide" href="${esc(site.phone.tel)}" data-call>Позвонить ${esc(site.phone.display)}</a>` : ''}
     </div>
     ${m.description ? `<p class="desc">${esc(m.description)}</p>` : ''}
     ${m.specs?.length ? `<details class="specs"><summary>Все характеристики (${m.specs.length})</summary><table>${m.specs.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table></details>` : ''}
@@ -289,7 +289,7 @@ function renderContact() {
   view.innerHTML = `<div class="vadim"><img src="${esc(asset(site.ownerAvatar))}" alt="${esc(site.ownerDisplay)}" width="72" height="72"><div><b>${esc(site.ownerDisplay)}</b><span>Мотосалон ${esc(site.salonName)} · ${esc(site.hours)}</span></div></div>
     <div class="actions">
       <button class="btn btn-accent btn-wide" type="button" data-write>Написать Вадиму в Telegram</button>
-      <a class="btn" href="${esc(site.phone?.tel)}" data-call>Позвонить</a>
+      ${site.phone?.tel ? `<a class="btn" href="${esc(site.phone.tel)}" data-call>Позвонить</a>` : ''}
       <button class="btn" type="button" data-link="${esc(C.channelUrl)}">Канал салона</button>
       ${C.siteUrl ? '<button class="btn btn-wide" type="button" data-site>Открыть сайт</button>' : ''}
     </div>
@@ -413,7 +413,7 @@ document.addEventListener('click', e => {
   if (d.link) return openLink(d.link);
   if ('site' in d) return openLink(new URL(C.siteUrl, location.href).href);
   if (d.linkSite) { e.preventDefault(); return openLink(new URL('../' + d.linkSite, location.href).href); }
-  if ('call' in d) { copyText(site.phone?.display || ''); toast(`Номер ${site.phone?.display} скопирован — если звонок не открылся, наберите его вручную.`); }
+  if ('call' in d && site.phone?.display) { copyText(site.phone?.display || ''); toast(`Номер ${site.phone?.display} скопирован — если звонок не открылся, наберите его вручную.`); }
 });
 addEventListener('hashchange', route);
 

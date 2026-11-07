@@ -6,11 +6,7 @@
   "ownerPhotoLarge": "assets/media/vadim-portrait-1200.webp",
   "ownerAvatar": "assets/media/vadim-avatar-192.webp",
   "ownerPhotoNote": "Фото и права на публикацию подтверждены владельцем 01.11.2026 (исходники 01_Пятигорск IMG_5647, 5648, 5655, 5660).",
-  "phone": {
-    "display": "+7 (989) 228-88-51",
-    "normalized": "+79892288851",
-    "tel": "tel:+79892288851"
-  },
+  "phone": null,
   "whatsapp": "https://wa.me/79892288851",
   "telegram": "https://t.me/+79892288851",
   "telegramVerified": false,
