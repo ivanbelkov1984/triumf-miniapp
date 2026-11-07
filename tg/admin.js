@@ -34,14 +34,18 @@ export function createApi(base, getInitData) {
 const fold = s => String(s ?? '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]/gu, '');
 const COPY_FIELDS = ['price', 'priceUpdatedAt', 'availabilityStatus', 'name', 'brand', 'series', 'description', 'displacementCc', 'powerHp',
   'weightKg', 'seatHeightMm', 'stroke', 'cooling', 'ptsStatus', 'wheelFormat', 'specs'];
-export const MODEL_KEYS = [...COPY_FIELDS.filter(k => k !== 'priceUpdatedAt'), 'coverLight', 'gallery'];
+export const MODEL_KEYS = [...COPY_FIELDS.filter(k => k !== 'priceUpdatedAt'), 'coverLight', 'coverDark', 'gallery'];
 
 export function applyOverrides(models, ov) {
   const map = ov?.models || {};
   for (const m of models) {
     const o = map[m.id]; if (!o) continue;
     for (const k of COPY_FIELDS) if (k in o) m[k] = o[k];
-    if (okPath(o.coverLight)) { m.coverLight = o.coverLight; m.coverDark = o.coverLight; }
+    // Светлая и тёмная обложки — независимые поля. Раньше coverDark тихо приравнивался к coverLight —
+    // это и есть описанный в задании баг: правка одной темы молча портила другую. Теперь каждая тема
+    // меняется только своей правкой; если правки нет — остаётся штатное фото модели из каталога.
+    if (okPath(o.coverLight)) m.coverLight = o.coverLight;
+    if (okPath(o.coverDark)) m.coverDark = o.coverDark;
     if (Array.isArray(o.gallery)) m.gallery = o.gallery.filter(okPath).map(src => ({ src, thumb: src }));
     m.search = `${m.search || ''}${fold(`${m.id} ${m.name} ${m.brand} ${m.series || ''}`)}`;
     m._edited = true;
@@ -103,7 +107,7 @@ function renderModel(ctx, id) {
   const { view } = ctx;
   const m = ctx.getById().get(id);
   if (!m) { view.innerHTML = '<p class="empty">Модель не найдена.</p>'; return; }
-  const ed = { gallery: m.gallery.map(g => g.src).filter(okPath), cover: m.coverLight, specs: (m.specs || []).map(r => [...r]) };
+  const ed = { gallery: m.gallery.map(g => g.src).filter(okPath), cover: m.coverLight, coverDark: m.coverDark, specs: (m.specs || []).map(r => [...r]) };
   const o = ctx.getOverrides()?.models?.[id];
   view.innerHTML = `<div class="step-head"><h1>${esc(m.name)}</h1><span>${m.id}</span></div>
     ${o ? '<p class="note">У этой модели есть ваши правки. «Вернуть как в каталоге» убирает их все.</p>' : ''}
@@ -136,11 +140,15 @@ function renderModel(ctx, id) {
     </form>`;
   const paintPhotos = () => {
     $('#adm-photos').innerHTML = `
-      <p class="hint">Главное фото показывается в списке и на карточке в каталоге.</p>
-      ${ed.cover ? `<img class="adm-cover" src="${esc(thumbSrc(ctx, ed.cover))}" alt="Главное фото">` : ''}
+      <p class="hint">Светлая обложка — карточка и карусель в светлой теме Telegram, тёмная — в тёмной. Если тёмная не выбрана, показывается светлая.</p>
+      <div class="two">
+        ${ed.cover ? `<img class="adm-cover" src="${esc(thumbSrc(ctx, ed.cover))}" alt="Светлая обложка">` : '<p class="hint">Нет светлой обложки</p>'}
+        ${ed.coverDark ? `<img class="adm-cover" src="${esc(thumbSrc(ctx, ed.coverDark))}" alt="Тёмная обложка">` : '<p class="hint">Нет тёмной — используется светлая</p>'}
+      </div>
       <div class="thumbs">${ed.gallery.map((p, i) => `<figure class="thumb">
         <img src="${esc(thumbSrc(ctx, p))}" alt="Фото ${i + 1}" loading="lazy">
-        <figcaption><button type="button" data-adm="cover" data-i="${i}" aria-label="Сделать главным, фото ${i + 1}" ${p === ed.cover ? 'aria-pressed="true"' : ''}>★</button>
+        <figcaption><button type="button" data-adm="cover" data-i="${i}" aria-label="Светлая обложка, фото ${i + 1}" aria-pressed="${p === ed.cover}">☀</button>
+          <button type="button" data-adm="coverDark" data-i="${i}" aria-label="Тёмная обложка, фото ${i + 1}" aria-pressed="${p === ed.coverDark}">☾</button>
           <button type="button" data-adm="left" data-i="${i}" aria-label="Сдвинуть влево, фото ${i + 1}">‹</button>
           <button type="button" data-adm="right" data-i="${i}" aria-label="Сдвинуть вправо, фото ${i + 1}">›</button>
           <button type="button" data-adm="del" data-i="${i}" aria-label="Убрать фото ${i + 1}">✕</button></figcaption></figure>`).join('')}</div>
@@ -168,6 +176,7 @@ function renderModel(ctx, id) {
     set('stroke', val('f-stroke') || null); set('cooling', val('f-cool') || null); set('ptsStatus', val('f-pts') || null);
     if (!same(m.gallery.map(g => g.src), ed.gallery)) p.gallery = ed.gallery;
     if (ed.cover && ed.cover !== m.coverLight) p.coverLight = ed.cover;
+    if (ed.coverDark && ed.coverDark !== m.coverDark) p.coverDark = ed.coverDark;
     const specs = ed.specs.map(r => [String(r[0]).trim(), String(r[1]).trim()]).filter(r => r[0]);
     if (!same(m.specs || [], specs)) p.specs = specs;
     return p;
@@ -202,6 +211,7 @@ function renderModel(ctx, id) {
     const b = e.target.closest('[data-adm]'); if (!b) return;
     const i = Number(b.dataset.i), a = b.dataset.adm;
     if (a === 'cover') ed.cover = ed.gallery[i];
+    else if (a === 'coverDark') ed.coverDark = ed.gallery[i];
     else if (a === 'left' && i > 0) [ed.gallery[i - 1], ed.gallery[i]] = [ed.gallery[i], ed.gallery[i - 1]];
     else if (a === 'right' && i < ed.gallery.length - 1) [ed.gallery[i + 1], ed.gallery[i]] = [ed.gallery[i], ed.gallery[i + 1]];
     else if (a === 'del') ed.gallery.splice(i, 1);
@@ -271,7 +281,7 @@ function renderProfile(ctx) {
 }
 
 /* ---------- История и откат ---------- */
-const LABELS = { price: 'цена', availabilityStatus: 'наличие', name: 'название', description: 'описание', coverLight: 'главное фото', gallery: 'галерея', specs: 'характеристики' };
+const LABELS = { price: 'цена', availabilityStatus: 'наличие', name: 'название', description: 'описание', coverLight: 'светлая обложка', coverDark: 'тёмная обложка', gallery: 'галерея', specs: 'характеристики' };
 function summarize(e) {
   const b = e.before || {}, a = e.after || {};
   const keys = [...new Set([...Object.keys(b), ...Object.keys(a)])].filter(k => k !== 'priceUpdatedAt' && !same(b[k], a[k]));

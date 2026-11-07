@@ -12,6 +12,10 @@ const view = $('#view');
 /** Картинки каталога лежат рядом с приложением, загруженные админом — на сервере (media/…). */
 let api = null;
 const asset = p => !p ? '' : /^media\//.test(p) ? (api ? api.mediaUrl(p) : '') : '../' + p;
+/** Тема Telegram (или системная — для сайта в обычном браузере) и обложка модели под неё. */
+function isDarkTheme() { return tg ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+function coverFor(m) { return isDarkTheme() ? (m.coverDark || m.coverLight) : (m.coverLight || m.coverDark); }
+let galManualNav = false; // true — пользователь сам листал карусель модели; тогда смена темы не переключает кадр
 let base = null, overrides = null, meState; // base — исходный каталог; overrides — правки с сервера; meState: undefined = проверяется, null = не админ/нет связи
 const modelsWord = n => plural(n, ['модель', 'модели', 'моделей']);
 
@@ -114,7 +118,7 @@ const factsLine = m => m.electric
 const heart = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
 function card(m, why = []) {
   return `<article class="card" data-open="${m.id}">
-    <div class="card-img"><img src="${esc(asset(m.coverLight))}" alt="${esc(m.name)}" loading="lazy" decoding="async" width="600" height="450"></div>
+    <div class="card-img"><img src="${esc(asset(coverFor(m)))}" alt="${esc(m.name)}" loading="lazy" decoding="async" width="600" height="450"></div>
     <div class="card-body">
       <span class="card-kind">${esc(KIND[m.category] || '')} · ${m.id}</span>
       <span class="card-name">${esc(m.name)}</span>
@@ -166,10 +170,13 @@ function factBoxes(m) {
 function renderModel(id) {
   const m = byId.get(id);
   if (!m) { view.innerHTML = '<p class="empty">Модель не найдена.</p>'; return; }
-  const pics = [m.coverLight, ...m.gallery.map(g => g.src)].filter(Boolean);
+  // Фиксированный порядок кадров: белый фон → чёрный фон → гараж (как в m.gallery). Старое поле coverLight — запасной вариант, если галереи нет.
+  const pics = (m.gallery?.length ? m.gallery.map(g => g.src) : [m.coverLight, m.coverDark]).filter(Boolean);
+  galManualNav = false;
+  const startIdx = isDarkTheme() ? Math.min(1, pics.length - 1) : 0;
   view.innerHTML = `
-    <div class="gallery" id="gal" tabindex="0" role="region" aria-label="Фото модели, листайте вбок">${pics.map((p, i) => `<img src="${esc(asset(p))}" alt="${esc(m.name)}, фото ${i + 1}" ${i ? 'loading="lazy"' : ''} decoding="async">`).join('')}</div>
-    <p class="g-count" id="gc">1 / ${pics.length}</p>
+    <div class="gallery" id="gal" tabindex="0" role="region" aria-label="Фото модели, листайте вбок или нажмите для полноэкранного просмотра">${pics.map((p, i) => `<img src="${esc(asset(p))}" alt="${esc(m.name)}, фото ${i + 1}" ${i ? 'loading="lazy"' : ''} decoding="async" data-lb-open="${i}">`).join('')}</div>
+    <p class="g-count" id="gc">${startIdx + 1} / ${pics.length}</p>
     <div class="m-head"><span class="m-kind">${esc(KIND[m.category] || '')} · ${m.id}</span>
       <h1 class="m-name">${esc(m.name)}</h1>
       <span class="status" data-s="${m.availabilityStatus}">${esc(STATUS[m.availabilityStatus])}</span></div>
@@ -186,8 +193,132 @@ function renderModel(id) {
     <p class="note">Характеристики — по данным поставщика. Наличие, комплектацию и цену подтверждают при обращении. Не является публичной офертой.</p>`;
   const gal = $('#gal');
   gal.addEventListener('scroll', () => { $('#gc').textContent = `${Math.round(gal.scrollLeft / gal.clientWidth) + 1} / ${pics.length}`; }, { passive: true });
+  gal.addEventListener('pointerdown', () => { galManualNav = true; }, { passive: true });
+  gal.addEventListener('click', e => { const t = e.target.closest('[data-lb-open]'); if (t) openLightbox(pics, m.name, Number(t.dataset.lbOpen)); });
+  if (startIdx) requestAnimationFrame(() => gal.scrollTo({ left: gal.clientWidth * startIdx, behavior: 'auto' }));
   setMainButton('Узнать наличие', () => lead(m));
   window.scrollTo(0, 0);
+}
+
+/* ---------- Полноэкранный просмотр фото: 3 кадра, стрелки, колесо/клавиатура, зум и перемещение ---------- */
+const LB_MIN = 1, LB_MAX = 4, LB_STEP = 0.6;
+let lb = null; // { pics, name, idx, zoom, panX, panY }
+function lbEl() {
+  let el = $('#lightbox');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'lightbox'; el.className = 'lightbox'; el.hidden = true;
+  el.innerHTML = `
+    <button class="lb-btn lb-close" type="button" aria-label="Закрыть просмотр">✕</button>
+    <button class="lb-btn lb-nav lb-prev" type="button" aria-label="Предыдущее фото">‹</button>
+    <div class="lb-stage"><img class="lb-img" alt=""></div>
+    <button class="lb-btn lb-nav lb-next" type="button" aria-label="Следующее фото">›</button>
+    <div class="lb-bar">
+      <button class="lb-btn lb-zoom" data-lb-zoom="-1" type="button" aria-label="Уменьшить">−</button>
+      <span class="lb-count"></span>
+      <button class="lb-btn lb-zoom" data-lb-zoom="1" type="button" aria-label="Увеличить">+</button>
+    </div>`;
+  document.body.append(el);
+  el.addEventListener('click', e => { if (e.target === el || e.target.classList.contains('lb-stage')) lbClose(); });
+  el.querySelector('.lb-close').addEventListener('click', lbClose);
+  el.querySelector('.lb-prev').addEventListener('click', () => lbGo(-1));
+  el.querySelector('.lb-next').addEventListener('click', () => lbGo(1));
+  el.querySelectorAll('[data-lb-zoom]').forEach(b => b.addEventListener('click', () => lbZoom(Number(b.dataset.lbZoom) * LB_STEP)));
+  el.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (e.ctrlKey || Math.abs(e.deltaY) >= Math.abs(e.deltaX)) lbZoom(e.deltaY < 0 ? LB_STEP : -LB_STEP);
+    else lbGo(e.deltaX > 0 ? 1 : -1);
+  }, { passive: false });
+  const img = el.querySelector('.lb-img');
+  let dragging = false, sx = 0, sy = 0, spx = 0, spy = 0, moved = false, lastTap = 0;
+  img.addEventListener('pointerdown', e => { if (!lb) return; dragging = true; moved = false; sx = e.clientX; sy = e.clientY; spx = lb.panX; spy = lb.panY; try { img.setPointerCapture(e.pointerId); } catch {} });
+  img.addEventListener('pointermove', e => {
+    if (!dragging || !lb) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+    if (lb.zoom > 1) { lb.panX = spx + dx; lb.panY = spy + dy; lbRender(); }
+  });
+  img.addEventListener('pointerup', () => {
+    dragging = false;
+    if (moved) return;
+    const now = Date.now();
+    if (now - lastTap < 350) { lbZoom(lb.zoom > 1 ? LB_MIN - lb.zoom : LB_STEP * 2); lastTap = 0; } else lastTap = now;
+  });
+  return el;
+}
+function lbClampPan() {
+  const max = 140 * Math.max(0, lb.zoom - 1);
+  lb.panX = Math.max(-max, Math.min(max, lb.panX));
+  lb.panY = Math.max(-max, Math.min(max, lb.panY));
+}
+function lbRender() {
+  const el = lbEl(); if (!lb) return;
+  const img = el.querySelector('.lb-img');
+  img.src = esc(asset(lb.pics[lb.idx]));
+  img.alt = `${esc(lb.name)}, фото ${lb.idx + 1}`;
+  lbClampPan();
+  img.style.transform = `translate(${lb.panX}px, ${lb.panY}px) scale(${lb.zoom})`;
+  img.style.cursor = lb.zoom > 1 ? 'grab' : 'zoom-in';
+  el.querySelector('.lb-count').textContent = `${lb.idx + 1} / ${lb.pics.length}`;
+  const multi = lb.pics.length > 1;
+  el.querySelector('.lb-prev').hidden = !multi;
+  el.querySelector('.lb-next').hidden = !multi;
+}
+function lbGo(dir) {
+  if (!lb) return;
+  lb.idx = (lb.idx + dir + lb.pics.length) % lb.pics.length;
+  lb.zoom = 1; lb.panX = 0; lb.panY = 0;
+  galManualNav = true;
+  syncGalleryToIndex(lb.idx);
+  lbRender();
+}
+function lbZoom(delta) {
+  if (!lb) return;
+  lb.zoom = Math.max(LB_MIN, Math.min(LB_MAX, +(lb.zoom + delta).toFixed(2)));
+  if (lb.zoom <= 1) { lb.zoom = 1; lb.panX = 0; lb.panY = 0; }
+  lbRender();
+}
+function lbKey(e) {
+  if (!lb) return;
+  if (e.key === 'Escape') return lbClose();
+  if (e.key === 'ArrowLeft') return lbGo(-1);
+  if (e.key === 'ArrowRight') return lbGo(1);
+  if (e.key === '+' || e.key === '=') return lbZoom(LB_STEP);
+  if (e.key === '-' || e.key === '_') return lbZoom(-LB_STEP);
+}
+function openLightbox(pics, name, startIndex) {
+  lb = { pics, name, idx: Math.max(0, Math.min(startIndex, pics.length - 1)), zoom: 1, panX: 0, panY: 0 };
+  const el = lbEl();
+  el.hidden = false;
+  document.documentElement.classList.add('lb-open');
+  document.addEventListener('keydown', lbKey);
+  lbRender();
+}
+function lbClose() {
+  const el = $('#lightbox'); if (el) el.hidden = true;
+  document.documentElement.classList.remove('lb-open');
+  document.removeEventListener('keydown', lbKey);
+  lb = null;
+}
+function syncGalleryToIndex(idx) {
+  const gal = $('#gal'); if (!gal) return;
+  gal.scrollTo({ left: gal.clientWidth * idx, behavior: 'auto' });
+  const gc = $('#gc'); if (gc) gc.textContent = `${idx + 1} / ${gal.children.length}`;
+}
+/** Смена темы: перекрасить обложки карточек и (если пользователь не листал сам) кадр карусели модели. */
+function refreshCoverImages() {
+  document.querySelectorAll('.card[data-open]').forEach(el => {
+    const m = byId.get(el.dataset.open);
+    const img = el.querySelector('.card-img img');
+    if (m && img) img.src = esc(asset(coverFor(m)));
+  });
+}
+function refreshGalleryTheme() {
+  if (galManualNav) return;
+  const gal = $('#gal'); if (!gal) return;
+  const idx = isDarkTheme() ? Math.min(1, gal.children.length - 1) : 0;
+  gal.scrollTo({ left: gal.clientWidth * idx, behavior: 'auto' });
+  const gc = $('#gc'); if (gc) gc.textContent = `${idx + 1} / ${gal.children.length}`;
 }
 function lead(m) {
   const text = buildMessage({ model: m, url: appLink(m.id) }) + (who() ? `\nПишу из каталога в Telegram: ${who()}.` : '');
@@ -437,13 +568,15 @@ addEventListener('hashchange', route);
     try { if (can('7.7')) tg.disableVerticalSwipes(); } catch {}
     try { tg.setHeaderColor('bg_color'); tg.setBackgroundColor('bg_color'); } catch {}
     tg.BackButton.onClick(back);
-    tg.onEvent('themeChanged', paintBrand);
+    tg.onEvent('themeChanged', () => { paintBrand(); refreshCoverImages(); refreshGalleryTheme(); });
     const sp = parseStart(tg.initDataUnsafe?.start_param);
     if (sp.src) leadSrc = sp.src;
     if (sp.model === 'id') location.hash = '#/id';
     else if (sp.model && byId.has(sp.model) && !location.hash.startsWith('#/m/')) location.hash = `#/m/${sp.model}`;
   }
   paintBrand();
+  // Сайт в обычном браузере (та же сборка): тема меняется ОС/браузером, а не событием Telegram.
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { paintBrand(); refreshCoverImages(); refreshGalleryTheme(); }); } catch {}
   const qs = new URLSearchParams(location.search);
   if (!leadSrc && qs.get('src')) leadSrc = cleanSrc(qs.get('src'));
   const q = qs.get('model');
