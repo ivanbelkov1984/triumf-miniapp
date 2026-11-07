@@ -13,7 +13,13 @@ const view = $('#view');
 let api = null;
 const asset = p => !p ? '' : /^media\//.test(p) ? (api ? api.mediaUrl(p) : '') : '../' + p;
 /** Тема Telegram (или системная — для сайта в обычном браузере) и обложка модели под неё. */
-function isDarkTheme() { return tg ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+function isDarkTheme() {
+  // ?theme=dark|light — ручная проверка темы вне Telegram (QA/отладка); обычных пользователей не касается.
+  const forced = new URLSearchParams(location.search).get('theme');
+  if (forced === 'dark') return true;
+  if (forced === 'light') return false;
+  return tg ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+}
 function coverFor(m) { return isDarkTheme() ? (m.coverDark || m.coverLight) : (m.coverLight || m.coverDark); }
 let galManualNav = false; // true — пользователь сам листал карусель модели; тогда смена темы не переключает кадр
 let base = null, overrides = null, meState; // base — исходный каталог; overrides — правки с сервера; meState: undefined = проверяется, null = не админ/нет связи
@@ -603,7 +609,7 @@ function build() {
 function paintBrand() {
   const p = overrides?.profile || {};
   site.salonName = p.salonName || 'ТРИУМФ';
-  const dark = tg ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = isDarkTheme();
   const custom = dark ? (p.logoDark || p.logoLight) : (p.logoLight || p.logoDark);
   const logo = $('[data-logo]');
   logo.src = okPath(custom) ? asset(custom) : `../assets/brand/triumf-lockup-${dark ? 'dark' : 'light'}.svg`;
